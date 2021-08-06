@@ -2,6 +2,8 @@
 """
 
 from vgreenfunctions import crc16a as crc16
+from operator import itemgetter
+from collections import namedtuple
 
 ADDRESS = 0x15  # default address
 
@@ -48,10 +50,11 @@ SENSOR_FAULT_CODES = {
 }
 
 # {code: ['description', cmd_length, reply_length],...}
-FUNCTION_CODES = {0x41:'Go', 0x42:'Stop', 0x43:'Status',
-                  0x44: 'Set Demand', 0x45: 'Read Sensor',
-                  0x46: 'Read Identification',
-                  0x64: 'Configuration Read/Write', 0x65: 'Store Configuration' }
+FUNCTION_CODES = {0x41:['Go',5,5], 0x42:['Stop',5,5], 0x43:['Status',5,6],
+                  0x44: ['Set Demand',8,8], 0x45: ['Read Sensor',7,9],
+                  0x46: ['Read Identification',None,None],
+                  0x64: ['Configuration Read/Write',None,None], 0x65: ['Store Configuration',None,None]
+                   }
 
 # If there is a message error the pump replies with the MSB of the function byte set
 FUNCTION_CODES.update((code|0x80,'Message Error') for code in FUNCTION_CODES)
@@ -88,6 +91,10 @@ FUNCTION_CODES.update((code|0x80,'Message Error') for code in FUNCTION_CODES)
 # The motor only responds to commands with its address
 # and validates the message by checking its length and its CRC
 
+# address,function,ack,data,crclo,crchi
+msg_parts = itemgetter(0,1,2,slice(2,-2),-2,-1)
+msgparts = itemgetter('addr','fn','ack','data','crclo','crchi')
+Qmsg = namedtuple('Qmsg',['addr','fn','ack','data','crclo','crchi'])
 
 class Message:
     def __init__(
@@ -118,6 +125,7 @@ class Message:
         if self.data:
             packet.append(self.data)
         return crc16(packet)
+    
 
 # Simple messages, no data, packet length = 5 bytes
 # [ADDRESS][FUNCTION][ACK][CRCLO][CRCHI]
