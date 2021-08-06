@@ -1,18 +1,7 @@
-from timeit import Timer
-import operator, re, collections, math, random, datetime, io, sys
-import itertools, functools, csv, os, json, string, time
-import decimal, timeit
-from pprint import pprint
-import numpy as np
-import matplotlib as mpl
-from matplotlib import pyplot as plt
-import pandas as pd
+''' helper functions
+'''
 
-# from bs4 import BeautifulSoup
-# import requests
-# import inspect
 sep = "*************************\n"
-
 
 
 def crc16(data: bytes, poly=0xA001):
@@ -83,7 +72,7 @@ CRC_LO = [0x00, 0xC0, 0xC1, 0x01, 0xC3, 0x03, 0x02, 0xC2, 0xC6, 0x06, 0x07, 0xC7
           0x44, 0x84, 0x85, 0x45, 0x87, 0x47, 0x46, 0x86, 0x82, 0x42, 0x43, 0x83, 0x41, 0x81, 0x80,
           0x40]
 
-def crc16a(msg):
+def crc16a(msg, CRC_HI=CRC_HI, CRC_LO=CRC_LO):
     '''
     CRC-16 Modbus algorithm
 

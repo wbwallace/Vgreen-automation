@@ -1,7 +1,7 @@
-""" vgreen commands
+""" Data structures to encode vgreen commands
 """
 
-from vgreenfunctions import crc16
+from vgreenfunctions import crc16a as crc16
 
 ADDRESS = 0x15  # default address
 
@@ -47,6 +47,7 @@ SENSOR_FAULT_CODES = {
     0x44: "SVRS Fault Type 13",
 }
 
+# {code: ['description', cmd_length, reply_length],...}
 FUNCTION_CODES = {0x41:'Go', 0x42:'Stop', 0x43:'Status',
                   0x44: 'Set Demand', 0x45: 'Read Sensor',
                   0x46: 'Read Identification',
@@ -54,6 +55,39 @@ FUNCTION_CODES = {0x41:'Go', 0x42:'Stop', 0x43:'Status',
 
 # If there is a message error the pump replies with the MSB of the function byte set
 FUNCTION_CODES.update((code|0x80,'Message Error') for code in FUNCTION_CODES)
+
+# Message packet structure 
+# 
+# [Start]                [Address]  [Function] [ACK]    [Data]          [CRC]     [End]
+# [3.5+ bytes idle time] [1 byte]   [1 byte]   [1 byte] [0 to 11 bytes] [2 bytes] [3.5+ bytes idle time]
+# 
+# Start: Minimum of 3.5 bytes times bus idle.
+# Address: One byte address of the slave unit.
+#          0x15 is the default address for the EPC ECM
+#          0 is reserved for broadcast messages, motors will respond with their actual address.
+#          Only odd addresses from 0x15 through 0x0F7 (and 0 for broadcast) are valid for this protocol
+#          0xF8 through 0xFF are reserved for compatibility with MODBUS.
+# Function/Command: One byte function code 0-0x7F.
+#                   The Most Significant bit is set in an error reply - see NACK byte
+# ACK: 0x20 in command from bus master,
+#      0x10 in reply from motor
+#      NACK error code - valid command and data block that cannot be processed for some reason
+# Data: Zero up to 11 bytes of data depending on the function
+# CRC: 2 byte CRC-16 as described in “MODBUS over Serial Line, V1.0, Modbus.org”
+#      or see Error! Reference source not found.
+# End: Minimum of 3.5 byte times bus idle.
+#      In theory, end and start idle times can overlap leaving just
+#      one idle time between message packets.
+#      In practice, a message sent to the EPC ECM is followed by
+#      a minimum of 4ms idle time (for 9600 baud rate) before the response is sent.
+#      between 4ms (for 9600 baud rate) and 10ms (Except STORE command - 1 second)
+# 
+# Each message has a specified length which is dependent on the function
+# Commands/Requests and replies can have different lengths.
+# 
+# The motor only responds to commands with its address
+# and validates the message by checking its length and its CRC
+
 
 class Message:
     def __init__(
@@ -63,7 +97,7 @@ class Message:
         ack=COMMAND_ACK,
         msglength=0,    # bytes
         data=None,  # b'' ???
-        datalength=0,
+        datalength=0,   # specify length for commands, check length for replies
         crc_lo=None,
         crc_hi=None,
     ):
@@ -81,8 +115,8 @@ class Message:
 
     def calc_crc16(self):
         packet = [self.address,self.function,self.ack]
-        if data:
-            packet.append(data)
+        if self.data:
+            packet.append(self.data)
         return crc16(packet)
 
 # Simple messages, no data, packet length = 5 bytes
@@ -91,7 +125,7 @@ class Message:
 GO = Message(function=0x41,ack=0x20,msglength=5)
 STOP = Message(function=0x42,ack=0x20,msglength=5)
 STATUS = Message(function=0x43,ack=0x20,msglength=5)
-STORE_CONFIG = Message(function=0x65,ack=0x20,msglength=5))
+STORE_CONFIG = Message(function=0x65,ack=0x20,msglength=5)
 
 
 class Message:
