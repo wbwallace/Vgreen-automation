@@ -50,20 +50,31 @@ SENSOR_FAULT_CODES = {
 }
 
 # {code: ['description', cmd_length, reply_length],...}
-FUNCTION_CODES = {0x41:['Go',5,5], 0x42:['Stop',5,5], 0x43:['Status',5,6],
-                  0x44: ['Set Demand',8,8], 0x45: ['Read Sensor',7,9],
-                  0x46: ['Read Identification',None,None],
-                  0x64: ['Configuration Read/Write',None,None], 0x65: ['Store Configuration',None,None]
-                   }
+FUNCTION_CODES = {
+    0x41: ["Go", 5, 5],
+    0x42: ["Stop", 5, 5],
+    0x43: ["Status", 5, 6],
+    0x44: ["Set Demand", 8, 8],
+    0x45: ["Read Sensor", 7, 9],
+    0x46: ["Read Identification", None, None],
+    0x64: ["Configuration Read/Write", None, None],
+    0x65: ["Store Configuration", 5, 5],
+}
+
+# Sensor Mappings
+# Page, Byte address, Title, Description, Variable name, Size of variable (bytes),Type of variable, Range of parameter, Scaling factor
+SENSOR_PAGE_0 = {}
+
+
 
 # If there is a message error the pump replies with the MSB of the function byte set
-FUNCTION_CODES.update((code|0x80,'Message Error') for code in FUNCTION_CODES)
+ERROR_RESPONSE = {(code | 0x80, ["Error"+descr, 5, 5]) for code,(descr,*_) in FUNCTION_CODES.items()}
 
-# Message packet structure 
-# 
+# Message packet structure
+#
 # [Start]                [Address]  [Function] [ACK]    [Data]          [CRC]     [End]
 # [3.5+ bytes idle time] [1 byte]   [1 byte]   [1 byte] [0 to 11 bytes] [2 bytes] [3.5+ bytes idle time]
-# 
+#
 # Start: Minimum of 3.5 bytes times bus idle.
 # Address: One byte address of the slave unit.
 #          0x15 is the default address for the EPC ECM
@@ -84,27 +95,27 @@ FUNCTION_CODES.update((code|0x80,'Message Error') for code in FUNCTION_CODES)
 #      In practice, a message sent to the EPC ECM is followed by
 #      a minimum of 4ms idle time (for 9600 baud rate) before the response is sent.
 #      between 4ms (for 9600 baud rate) and 10ms (Except STORE command - 1 second)
-# 
+#
 # Each message has a specified length which is dependent on the function
 # Commands/Requests and replies can have different lengths.
-# 
+#
 # The motor only responds to commands with its address
 # and validates the message by checking its length and its CRC
 
 # address,function,ack,data,crclo,crchi
-msg_parts = itemgetter(0,1,2,slice(2,-2),-2,-1)
-msgparts = itemgetter('addr','fn','ack','data','crclo','crchi')
-Qmsg = namedtuple('Qmsg',['addr','fn','ack','data','crclo','crchi'])
-
+msg_parts = itemgetter(0, 1, 2, slice(2, -2), -2, -1)
+msgparts = itemgetter("addr", "fn", "ack", "data", "crclo", "crchi")
+Qmsg = namedtuple("Qmsg", ["addr", "fn", "ack", "data", "crclo", "crchi"])
+    
 class Message:
     def __init__(
         self,
         address=ADDRESS,
         function=None,
         ack=COMMAND_ACK,
-        msglength=0,    # bytes
+        msglength=0,  # bytes
         data=None,  # b'' ???
-        datalength=0,   # specify length for commands, check length for replies
+        datalength=0,  # specify length for commands, check length for replies
         crc_lo=None,
         crc_hi=None,
     ):
@@ -121,19 +132,19 @@ class Message:
         self.crc_hi = crc_hi
 
     def calc_crc16(self):
-        packet = [self.address,self.function,self.ack]
+        packet = [self.address, self.function, self.ack]
         if self.data:
             packet.append(self.data)
         return crc16(packet)
-    
+
 
 # Simple messages, no data, packet length = 5 bytes
 # [ADDRESS][FUNCTION][ACK][CRCLO][CRCHI]
 # GO cmd and reply [0x15][0x41][0x20]
-GO = Message(function=0x41,ack=0x20,msglength=5)
-STOP = Message(function=0x42,ack=0x20,msglength=5)
-STATUS = Message(function=0x43,ack=0x20,msglength=5)
-STORE_CONFIG = Message(function=0x65,ack=0x20,msglength=5)
+GO = Message(function=0x41, ack=0x20, msglength=5)
+STOP = Message(function=0x42, ack=0x20, msglength=5)
+STATUS = Message(function=0x43, ack=0x20, msglength=5)
+STORE_CONFIG = Message(function=0x65, ack=0x20, msglength=5)
 
 
 class Message:
