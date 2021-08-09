@@ -7,6 +7,7 @@ Canned responses to incoming requests.
 # starting with asyncio tcp echo client/server example from the docs
 
 import asyncio
+import socket
 
 # use this to send messages to the motor
 async def tcp_echo_client(message):
@@ -24,7 +25,7 @@ async def tcp_echo_client(message):
     writer.close()
     await writer.wait_closed()
 
-# asyncio.run(tcp_echo_client('Hello World!'))
+
 
 async def handle_echo(reader, writer):
     data = await reader.read(100)
@@ -47,7 +48,37 @@ async def main():
     addr = server.sockets[0].getsockname()
     print(f'Serving on {addr}')
 
+    await tcp_echo_client('Hello World!')
+
     async with server:
         await server.serve_forever()
 
+# asyncio.run(tcp_echo_client('Hello World!'))
 asyncio.run(main())
+
+# Coroutine waiting until a socket receives data using the open_connection() function:
+async def wait_for_data():
+    # Get a reference to the current event loop because
+    # we want to access low-level APIs.
+    loop = asyncio.get_running_loop()
+
+    # Create a pair of connected sockets.
+    rsock, wsock = socket.socketpair()
+
+    # Register the open socket to wait for data.
+    reader, writer = await asyncio.open_connection(sock=rsock)
+
+    # Simulate the reception of data from the network
+    loop.call_soon(wsock.send, 'abc'.encode())
+
+    # Wait for data
+    data = await reader.read(100)
+
+    # Got data, we are done: close the socket
+    print("Received:", data.decode())
+    writer.close()
+
+    # Close the second socket
+    wsock.close()
+
+asyncio.run(wait_for_data())
