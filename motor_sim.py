@@ -2,6 +2,9 @@
 
 Listen to a socket; "decode" message; wait 4 ms; respond.
 Canned responses to incoming requests.
+
+This should be a "stand-alone" module meant only for testing.
+Being "stand-alone" is there a real need for the complication of an event loop?
 '''
 
 # starting with asyncio tcp echo client/server example from the docs
